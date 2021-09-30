@@ -777,6 +777,17 @@ class Model(base_layer.Layer, version_utils.ModelVersionSelector):
   def run_eagerly(self, value):
     self._run_eagerly = value
 
+  def _validate_target_and_loss(self, y, loss):
+    """Raises error if target or loss is not found."""
+    if self.loss and y is None:
+      raise ValueError(
+          f'Target data is missing. Your model has `loss`: {self.loss}, '
+          'and therefore expects target data to be passed in `fit()`.')
+    elif loss is None:
+      raise ValueError(
+          'No loss is found. Please check if you have provided loss at '
+          '`Model.compile`, or use `Layer/Model.add_loss`.')
+
   def train_step(self, data):
     """The logic for one training step.
 
@@ -808,10 +819,7 @@ class Model(base_layer.Layer, version_utils.ModelVersionSelector):
       y_pred = self(x, training=True)
       loss = self.compiled_loss(
           y, y_pred, sample_weight, regularization_losses=self.losses)
-    if self.loss and y is None:
-      raise TypeError(
-          f'Target data is missing. Your model has `loss`: {self.loss}, '
-          'and therefore expects target data to be passed in `fit()`.')
+    self._validate_target_and_loss(y, loss)
     # Run backwards pass.
     self.optimizer.minimize(loss, self.trainable_variables, tape=tape)
     self.compiled_metrics.update_state(y, y_pred, sample_weight)
